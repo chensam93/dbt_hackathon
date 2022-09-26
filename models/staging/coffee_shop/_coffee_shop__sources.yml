@@ -1,0 +1,7 @@
+version: 2
+
+sources:
+  - name: coffee_shop
+    tables:
+      - name: customer
+      - name: staff

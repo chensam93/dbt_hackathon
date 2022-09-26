@@ -1,0 +1,1 @@
+{{ get_schema_tables('COFFEE_SHOP') }}
