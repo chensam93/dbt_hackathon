@@ -17,12 +17,24 @@ $ pyenv uninstall dbt_hackathon
 
 # Install Libraries
 $ pip install --upgrade pip
+# Install/upgrade Setup tools
+$ pip install --upgrade setuptools
+# Insatll dbt-snowflake w/ dbt-core for a version
+$ pip install dbt-snowflake==1.3.0rc1
+# Upgrade dbt-snowflake w/ dbt-core to another version
+$ pip install --upgrade dbt-snowflake==1.3.0rc1
+# Check dbt version
+$ dbt --version
+
+
 # Jupyter Notebooks
 $ pip install jupyterlab
 # Snoflake Snowpark: https://docs.snowflake.com/en/developer-guide/snowpark/python/setup.html
 $ pip install snowflake-snowpark-python
 $ pip install "snowflake-snowpark-python[pandas]"
-$ pip install "snowflake-snowpark-python[loguru]"
+
+
+
 
 # Create requirements.txt file
 $ pip freeze > requirements.txt
