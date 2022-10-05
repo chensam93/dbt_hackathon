@@ -4,4 +4,11 @@ sources:
   - name: coffee_shop
     tables:
       - name: customer
+      - name: date
+      - name: generation
+      - name: pastry_inventory
+      - name: product
+      - name: sales_receipts
+      - name: sales_targets
       - name: staff
+      - name: store
