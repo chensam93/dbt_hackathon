@@ -109,6 +109,14 @@ def model(dbt, session):
                     # Get UTC timestamp for Now
                     utc_timestamp = datetime.datetime.now(timezone.utc).replace(tzinfo=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
                     
+                    if semantic_category.upper() == 'NAME':
+                        if "FIRST" in column_name.upper():
+                            semantic_category = "FIRST_NAME"
+                        elif "LAST" in column_name.upper():
+                            semantic_category = "LAST_NAME"
+                        else:
+                            semantic_category = "NAME"
+                    
                     # Create new_row for appending to results_df
                     new_row = {
                         'TABLE_SCHEMA': table_schema,
@@ -120,7 +128,8 @@ def model(dbt, session):
                         'MODIFIED_TS': utc_timestamp
                     }
 
-                    results_df = results_df.append(new_row, ignore_index=True)
+                    new_row = pd.DataFrame([new_row])
+                    results_df = pd.concat([results_df, new_row], ignore_index=True)
 
         # Tag table_pii_flag = 'Yes' for tables with PII Columns
         this_table_tag_query = table_tag_query.replace('[TABLE_SCHEMA]', table_schema).replace('[TABLE_NAME]', table_name)
