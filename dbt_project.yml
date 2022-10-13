@@ -36,3 +36,22 @@ models:
     # Applies to all files under models/example/
     example:
       materialized: view
+
+
+vars:
+  pii_database: HACKATHON
+  # Schema to evaluate:
+  pii_schema: COFFEE_SHOP
+  # Schema to store function and data:
+  pii_results_schema: PII
+  pii_exclude_tables: ('GENERATION', 'NEARBY_ZIPCODES', 'FIVETRAN_AUDIT')
+  pii_probability_threshold: 0.7
+  pii_execution_role: HACKATHON_ROLE
+  pii_unmasked_roles: ('SYSADMIN', 'HACKATHON_ROLE')
+  pii_masked_roles: ('HACKATHON_MASKED_ROLE')
+  pii_partial_roles: ('HACKATHON_PARTIAL_ROLE')
+  pii_hashed_roles: ('HACKATHON_HASHED_ROLE')
+  pii_faker_roles: ('HACKATHON_FAKER_ROLE')
+  pii_ethnicity_arr: ['White/Caucasian/European American','Black/African American','Asian American','Native American','Hispanic/Latin American','Pacific Islander','Middle Eastern','Other','Multiple']
+  pii_gender_arr: ['Male','Male','Male','Male','Female','Female','Female','Female','Transgender','Unspecified']
+  pii_marital_status_arr: ['Single','Single','Single','Single','Married','Married','Married','Married','Widowed','Divorced','Divorced','Domestic Partnership','Unspecified']

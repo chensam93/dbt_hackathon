@@ -1,44 +1,331 @@
 version: 2
 
 models:
-  - name: stg_pii__assign_tag_masking_policies
-    config:
-      materialized: table
-      pre-hook:
-        sql:  use schema hackathon.coffee_shop;
-        transaction: true
-      packages:
-        - pandas
 
   - name: stg_pii__tag_pii_snowflake
     config:
       materialized: table
-      pre-hook:
-        # Create the PII tags w/ allowed values
-        sql:  use schema hackathon.coffee_shop;
-              create tag if not exists TABLE_PII_FLAG allowed_values 'Yes' , 'No';
-              create tag if not exists COLUMN_PII_TYPE_SNOWFLAKE allowed_values 'EMAIL', 'IBAN', 'IMEI', 'IP_ADDRESS', 'VIN', 'PAYMENT_CARD', 
-                'PHONE_NUMBER', 'URL', 'US_BANK_ACCOUNT', 'US_DRIVERS_LICENSE', 'US_PASSPORT', 'US_SSN', 'US_STREET_ADDRESS', 'AGE', 'GENDER', 
-                'COUNTRY', 'DATE_OF_BIRTH', 'ETHNICITY', 'LATITUDE', 'LAT_LONG', 'LONGITUDE', 'MARITAL_STATUS', 'OCCUPATION', 'US_POSTAL_CODE', 
-                'US_STATE_OR_TERRITORY', 'US_COUNTY', 'US_CITY', 'YEAR_OF_BIRTH', 'SALARY', 'NAME', 'FIRST_NAME', 'LAST_NAME';
-        transaction: true
+      # Variables (from dbt_project.yml)
+      # Variables for db/schema and probability (used in pre/post-hooks and Python model)
+      pii_database: "{{ var('pii_database') }}"
+      pii_schema: "{{ var('pii_schema') }}"
+      pii_probability_threshold: "{{ var('pii_probability_threshold') }}"
+      pii_exclude_tables: "{{ var('pii_exclude_tables') }}"
+      # Packages used in Python model
       packages:
         - pandas
-
-
-  - name: stg_pii__tag_pii_catcher
-    config:
-      materialized: table
       pre-hook:
         # Create the PII tags w/ allowed values
-        sql:  use schema hackathon.coffee_shop;
-              create tag if not exists TABLE_PII_FLAG allowed_values 'Yes' , 'No';
-              create tag if not exists COLUMN_PII_TYPE_PIICATCHER allowed_values 'Phone', 'Email', 'Credit Card', 'Address', 'Person', 'Location', 'Date', 
-                'Gender', 'Nationality', 'IP Address', 'SSN', 'User Name', 'Password';
+        sql: | 
+          use database {{ var('pii_database') }};
+          use schema {{ var('pii_database') }}.{{ var('pii_schema') }};
+          use role {{ var('pii_execution_role') }};
+          create tag if not exists TABLE_PII_FLAG allowed_values 'Yes' , 'No';
+          create tag if not exists COLUMN_PII_TYPE_SNOWFLAKE allowed_values 'EMAIL', 'IBAN', 'IMEI', 'IP_ADDRESS', 'VIN', 'PAYMENT_CARD', 
+            'PHONE_NUMBER', 'URL', 'US_BANK_ACCOUNT', 'US_DRIVERS_LICENSE', 'US_PASSPORT', 'US_SSN', 'US_STREET_ADDRESS', 'AGE', 'GENDER', 
+            'COUNTRY', 'DATE_OF_BIRTH', 'ETHNICITY', 'LATITUDE', 'LAT_LONG', 'LONGITUDE', 'MARITAL_STATUS', 'OCCUPATION', 'US_POSTAL_CODE', 
+            'US_STATE_OR_TERRITORY', 'US_COUNTY', 'US_CITY', 'YEAR_OF_BIRTH', 'SALARY', 'NAME', 'FIRST_NAME', 'LAST_NAME';
         transaction: true
-      packages:
-        - pandas
-      imports:
-        - "@OTHER_PYTHON_PACKAGES/wheel_loader.py"
-        - "@OTHER_PYTHON_PACKAGES/piicatcher-0.19.2-py3-none-any.whl"
-        - "@OTHER_PYTHON_PACKAGES/piicatcher_spacy-0.1.1-py3-none-any.whl"
+      post-hook:
+        # Create Masking Policies for each data type: string, int, float, date
+        # Alter tag to apply masking policies
+        sql: |
+          use database {{ var('pii_database') }};
+          use schema {{ var('pii_database') }}.{{ var('pii_schema') }};
+          use role {{ var('pii_execution_role') }};
+
+          create masking policy if not exists {{ var('pii_schema') }}.mask_tag_string as (val string) returns string ->
+            case system$get_tag_on_current_column('column_pii_type_snowflake')
+              when 'EMAIL' then
+                  case
+                      when current_role() in {{ var('pii_unmasked_roles') }} then val
+                      when current_role() in {{ var('pii_partial_roles') }} then '?????' || split_part(val, '@', 2)
+                      when current_role() in {{ var('pii_masked_roles') }} then '***MASKED***'
+                      when current_role() in {{ var('pii_hashed_roles') }} then md5(val)
+                      when current_role() in {{ var('pii_faker_roles') }} then pii.fake('en_US', 'ascii_company_email', null)::varchar
+                      else '***MASKED***'
+                  end
+
+              when 'FIRST_NAME' then
+                  case
+                      when current_role() in {{ var('pii_unmasked_roles') }} then val
+                      when current_role() in {{ var('pii_partial_roles') }} then left(val, 1) || '?????'
+                      when current_role() in {{ var('pii_masked_roles') }} then '***MASKED***'
+                      when current_role() in {{ var('pii_hashed_roles') }} then md5(val)
+                      when current_role() in {{ var('pii_faker_roles') }} then pii.fake('en_US', 'first_name', null)::varchar
+                      else '***MASKED***'
+                  end
+
+              when 'LAST_NAME' then
+                  case
+                      when current_role() in {{ var('pii_unmasked_roles') }} then val
+                      when current_role() in {{ var('pii_partial_roles') }} then left(val, 1) || '?????'
+                      when current_role() in {{ var('pii_masked_roles') }} then '***MASKED***'
+                      when current_role() in {{ var('pii_hashed_roles') }} then md5(val)
+                      when current_role() in {{ var('pii_faker_roles') }} then pii.fake('en_US', 'last_name', null)::varchar
+                      else '***MASKED***'
+                  end
+
+              when 'NAME' then
+                  case
+                      when current_role() in {{ var('pii_unmasked_roles') }} then val
+                      when current_role() in {{ var('pii_partial_roles') }} then left(split_part(val, ' ', 1), 1) || '????? ' || left(split_part(val, ' ', 2), 1) || '?????'
+                      when current_role() in {{ var('pii_masked_roles') }} then '***MASKED***'
+                      when current_role() in {{ var('pii_hashed_roles') }} then md5(val)
+                      when current_role() in {{ var('pii_faker_roles') }} then pii.fake('en_US', 'name', null)::varchar
+                      else '***MASKED***'
+                  end
+
+              when 'PHONE_NUMBER' then
+                  case
+                      when current_role() in {{ var('pii_unmasked_roles') }} then val
+                      when current_role() in {{ var('pii_partial_roles') }} then regexp_replace(val,substring(val,1,8),'xxx-xxx-')
+                      when current_role() in {{ var('pii_masked_roles') }} then '###-###-####'
+                      when current_role() in {{ var('pii_hashed_roles') }} then md5(val)
+                      when current_role() in {{ var('pii_faker_roles') }} then pii.fake('en_US', 'phone_number', NULL)::varchar
+                      else '***MASKED***'
+                  end
+
+              when 'US_SSN' then
+                  case
+                      when current_role() in {{ var('pii_unmasked_roles') }} then val
+                      when current_role() in {{ var('pii_partial_roles') }} then regexp_replace(val,substring(val,1,7),'xxx-xx-')
+                      when current_role() in {{ var('pii_masked_roles') }} then '###-##-####'
+                      when current_role() in {{ var('pii_hashed_roles') }} then md5(val)
+                      when current_role() in {{ var('pii_faker_roles') }} then pii.fake('en_US', 'ssn', null)::varchar
+                      else '***MASKED***'
+                  end
+
+              when 'US_STREET_ADDRESS' then
+                  case
+                      when current_role() in {{ var('pii_unmasked_roles') }} then val
+                      when current_role() in {{ var('pii_partial_roles') }} then regexp_replace(val,split_part(val, ' ', 1),'####')
+                      when current_role() in {{ var('pii_masked_roles') }} then '***MASKED***'
+                      when current_role() in {{ var('pii_hashed_roles') }} then md5(val)
+                      when current_role() in {{ var('pii_faker_roles') }} then pii.fake('en_US', 'street_address', null)::varchar
+                      else '***MASKED***'
+                  end
+
+              when 'US_CITY' then
+                  case
+                      when current_role() in {{ var('pii_unmasked_roles') }} then val
+                      when current_role() in {{ var('pii_partial_roles') }} then left(val, 1) || '?????'
+                      when current_role() in {{ var('pii_masked_roles') }} then '***MASKED***'
+                      when current_role() in {{ var('pii_hashed_roles') }} then md5(val)
+                      when current_role() in {{ var('pii_faker_roles') }} then pii.fake('en_US', 'city', null)::varchar
+                      else '***MASKED***'
+                  end
+
+              when 'US_POSTAL_CODE' then
+                  case
+                      when current_role() in {{ var('pii_unmasked_roles') }} then val
+                      when current_role() in {{ var('pii_partial_roles') }} then left(val, 3) || '##'
+                      when current_role() in {{ var('pii_masked_roles') }} then '#####'
+                      when current_role() in {{ var('pii_hashed_roles') }} then md5(val)
+                      when current_role() in {{ var('pii_faker_roles') }} then pii.fake('en_US', 'postcode', null)::varchar
+                      else '***MASKED***'
+                  end
+
+              when 'US_STATE_OR_TERRITORY' then
+                  case
+                      when current_role() in {{ var('pii_unmasked_roles') }} then val
+                      when current_role() in {{ var('pii_partial_roles') }} then '??'
+                      when current_role() in {{ var('pii_masked_roles') }} then '??'
+                      when current_role() in {{ var('pii_hashed_roles') }} then md5(val)
+                      when current_role() in {{ var('pii_faker_roles') }} then pii.fake('en_US', 'state_abbr', null)::varchar
+                      else '***MASKED***'
+                  end
+
+              when 'US_COUNTY' then
+                  case
+                      when current_role() in {{ var('pii_unmasked_roles') }} then val
+                      when current_role() in {{ var('pii_partial_roles') }} then left(val, 1) || '?????'
+                      when current_role() in {{ var('pii_masked_roles') }} then '***MASKED***'
+                      when current_role() in {{ var('pii_hashed_roles') }} then md5(val)
+                      when current_role() in {{ var('pii_faker_roles') }} then pii.fake('en_GB', 'county', null)::varchar
+                      else '***MASKED***'
+                  end
+
+              when 'COUNTRY' then
+                  case
+                      when current_role() in {{ var('pii_unmasked_roles') }} then val
+                      when current_role() in {{ var('pii_partial_roles') }} then left(val, 1) || '?????'
+                      when current_role() in {{ var('pii_masked_roles') }} then '***MASKED***'
+                      when current_role() in {{ var('pii_hashed_roles') }} then md5(val)
+                      when current_role() in {{ var('pii_faker_roles') }} then pii.fake('en_US', 'country', null)::varchar
+                      else '***MASKED***'
+                  end
+
+              when 'OCCUPATION' then
+                  case
+                      when current_role() in {{ var('pii_unmasked_roles') }} then val
+                      when current_role() in {{ var('pii_partial_roles') }} then left(val, 1) || '?????'
+                      when current_role() in {{ var('pii_masked_roles') }} then '***MASKED***'
+                      when current_role() in {{ var('pii_hashed_roles') }} then md5(val)
+                      when current_role() in {{ var('pii_faker_roles') }} then pii.fake('en_US', 'job', null)::varchar
+                      else '***MASKED***'
+                  end
+
+              when 'ETHNICITY' then
+                  case
+                      when current_role() in {{ var('pii_unmasked_roles') }} then val
+                      when current_role() in {{ var('pii_partial_roles') }} then '***MASKED***'
+                      when current_role() in {{ var('pii_masked_roles') }} then '***MASKED***'
+                      when current_role() in {{ var('pii_hashed_roles') }} then md5(val)
+                      when current_role() in {{ var('pii_faker_roles') }} then get({{ var('pii_ethnicity_arr') }}, uniform(0, array_size({{ var('pii_ethnicity_arr') }}) - 1, random()))::varchar
+                      else '***MASKED***'
+                  end
+
+              when 'GENDER' then
+                  case
+                      when current_role() in {{ var('pii_unmasked_roles') }} then val
+                      when current_role() in {{ var('pii_partial_roles') }} then '***MASKED***'
+                      when current_role() in {{ var('pii_masked_roles') }} then '***MASKED***'
+                      when current_role() in {{ var('pii_hashed_roles') }} then md5(val)
+                      when current_role() in {{ var('pii_faker_roles') }} then get({{ var('pii_gender_arr') }}, uniform(0, array_size({{ var('pii_gender_arr') }}) - 1, random()))::varchar
+                      else '***MASKED***'
+                  end
+
+              when 'MARITAL_STATUS' then
+                  case
+                      when current_role() in {{ var('pii_unmasked_roles') }} then val
+                      when current_role() in {{ var('pii_partial_roles') }} then '***MASKED***'
+                      when current_role() in {{ var('pii_masked_roles') }} then '***MASKED***'
+                      when current_role() in {{ var('pii_hashed_roles') }} then md5(val)
+                      when current_role() in {{ var('pii_faker_roles') }} then get({{ var('pii_marital_status_arr') }}, uniform(0, array_size({{ var('pii_marital_status_arr') }}) - 1, random()))::varchar
+                      else '***MASKED***'
+                  end
+
+              when 'LAT_LONG' then
+                  case
+                      when current_role() in {{ var('pii_unmasked_roles') }} then val
+                      when current_role() in {{ var('pii_partial_roles') }} then split_part(split_part(val, ',', 1), '.', 1) || '.#####,' || split_part(split_part(val, ',', 2), '.', 1) || '.######'
+                      when current_role() in {{ var('pii_masked_roles') }} then '###.#####,###.#####'
+                      when current_role() in {{ var('pii_hashed_roles') }} then md5(val)
+                      when current_role() in {{ var('pii_faker_roles') }} then array_to_string(pii.fake('en_US', 'latlng', null)::array, ',')
+                      else '***MASKED***'
+                  end
+
+              when 'IP_ADDRESS' then
+                  case
+                      when current_role() in {{ var('pii_unmasked_roles') }} then val
+                      when current_role() in {{ var('pii_partial_roles') }} then split_part(val, '.', 1) || '.' || split_part(val, '.', 2) || '.###.###'
+                      when current_role() in {{ var('pii_masked_roles') }} then '###.###.###.###'
+                      when current_role() in {{ var('pii_hashed_roles') }} then md5(val)
+                      when current_role() in {{ var('pii_faker_roles') }} then pii.fake('en_US', 'ipv4', null)::varchar
+                      else '***MASKED***'
+                  end
+
+              when 'PAYMENT_CARD' then
+                  case
+                      when current_role() in {{ var('pii_unmasked_roles') }} then val
+                      when current_role() in {{ var('pii_partial_roles') }} then '####-####-####-' || right(val, 4)
+                      when current_role() in {{ var('pii_masked_roles') }} then '####-####-####-####'
+                      when current_role() in {{ var('pii_hashed_roles') }} then md5(val)
+                      when current_role() in {{ var('pii_faker_roles') }} then pii.fake('en_US', 'credit_card_number', null)::varchar
+                      else '***MASKED***'
+                  end
+
+              else '***MASKED***'
+            end;
+
+          create masking policy if not exists {{ var('pii_schema') }}.mask_tag_int as (val int) returns int ->
+            case system$get_tag_on_current_column('column_pii_type_snowflake')
+              when 'AGE' then
+                  case
+                      when current_role() in {{ var('pii_unmasked_roles') }} then val
+                      when current_role() in {{ var('pii_partial_roles') }} then 0
+                      when current_role() in {{ var('pii_masked_roles') }} then 0
+                      when current_role() in {{ var('pii_hashed_roles') }} then 0
+                      when current_role() in {{ var('pii_faker_roles') }} then uniform(10, 95, random())::int
+                      else 0
+                  end
+
+              when 'YEAR_OF_BIRTH' then
+                  case
+                      when current_role() in {{ var('pii_unmasked_roles') }} then val
+                      when current_role() in {{ var('pii_partial_roles') }} then 1900
+                      when current_role() in {{ var('pii_masked_roles') }} then 1900
+                      when current_role() in {{ var('pii_hashed_roles') }} then 1900
+                      when current_role() in {{ var('pii_faker_roles') }} then YEAR(pii.fake('en_US', 'date_of_birth', to_variant(parse_json('{}')))::date)::int
+                      else 1900
+                  end
+
+              else 0
+            end;
+
+          create masking policy if not exists {{ var('pii_schema') }}.mask_tag_float as (val float) returns float ->
+            case system$get_tag_on_current_column('column_pii_type_snowflake')
+
+              when 'LATITUDE' then
+                  case
+                      when current_role() in {{ var('pii_unmasked_roles') }} then val
+                      when current_role() in {{ var('pii_partial_roles') }} then 0
+                      when current_role() in {{ var('pii_masked_roles') }} then 0
+                      when current_role() in {{ var('pii_hashed_roles') }} then 0
+                      when current_role() in {{ var('pii_faker_roles') }} then pii.fake('en_US', 'latitude', null)::float
+                      else 0
+                  end
+
+              when 'LONGITUDE' then
+                  case
+                      when current_role() in {{ var('pii_unmasked_roles') }} then val
+                      when current_role() in {{ var('pii_partial_roles') }} then 0
+                      when current_role() in {{ var('pii_masked_roles') }} then 0
+                      when current_role() in {{ var('pii_hashed_roles') }} then 0
+                      when current_role() in {{ var('pii_faker_roles') }} then pii.fake('en_US', 'longitude', null)::float
+                      else 1900
+                  end
+
+              when 'SALARY' then
+                  case
+                      when current_role() in {{ var('pii_unmasked_roles') }} then val
+                      when current_role() in {{ var('pii_partial_roles') }} then 0
+                      when current_role() in {{ var('pii_masked_roles') }} then 0
+                      when current_role() in {{ var('pii_hashed_roles') }} then 0
+                      when current_role() in {{ var('pii_faker_roles') }} then  (1000 * uniform(10, 100, random()))::float
+                      else 0
+                  end
+
+              else 0
+            end;
+
+          create masking policy if not exists {{ var('pii_schema') }}.mask_tag_date as (val date) returns date ->
+            case system$get_tag_on_current_column('column_pii_type_snowflake')
+              when 'DATE_OF_BIRTH' then
+                  case
+                      when current_role() in {{ var('pii_unmasked_roles') }} then val
+                      when current_role() in {{ var('pii_partial_roles') }} then ((year(val)::string) || '-01-01')::date
+                      when current_role() in {{ var('pii_masked_roles') }} then '1900-01-01'::date
+                      when current_role() in {{ var('pii_hashed_roles') }} then '1900-01-01'::date
+                      when current_role() in {{ var('pii_faker_roles') }} then pii.fake('en_US', 'date_of_birth', to_variant(parse_json('{}')))::date
+                      else '1900-01-01'::date
+                  end
+
+              else '1900-01-01'::date
+            end;
+
+          ALTER TAG {{ var('pii_schema') }}.COLUMN_PII_TYPE_SNOWFLAKE SET MASKING POLICY {{ var('pii_schema') }}.mask_tag_string;
+          ALTER TAG {{ var('pii_schema') }}.COLUMN_PII_TYPE_SNOWFLAKE SET MASKING POLICY {{ var('pii_schema') }}.mask_tag_int;
+          ALTER TAG {{ var('pii_schema') }}.COLUMN_PII_TYPE_SNOWFLAKE SET MASKING POLICY {{ var('pii_schema') }}.mask_tag_date;
+          ALTER TAG {{ var('pii_schema') }}.COLUMN_PII_TYPE_SNOWFLAKE SET MASKING POLICY {{ var('pii_schema') }}.mask_tag_float;
+
+        transaction: true
+
+
+  # - name: stg_pii__tag_pii_catcher
+  #   config:
+  #     materialized: table
+  #     pre-hook:
+  #       # Create the PII tags w/ allowed values
+  #       sql:  use schema hackathon.coffee_shop;
+  #             create tag if not exists TABLE_PII_FLAG allowed_values 'Yes' , 'No';
+  #             create tag if not exists COLUMN_PII_TYPE_PIICATCHER allowed_values 'Phone', 'Email', 'Credit Card', 'Address', 'Person', 'Location', 'Date', 
+  #               'Gender', 'Nationality', 'IP Address', 'SSN', 'User Name', 'Password';
+  #       transaction: true
+  #     packages:
+  #       - pandas
+  #     imports:
+  #       - "@OTHER_PYTHON_PACKAGES/wheel_loader.py"
+  #       - "@OTHER_PYTHON_PACKAGES/piicatcher-0.19.2-py3-none-any.whl"
+  #       - "@OTHER_PYTHON_PACKAGES/piicatcher_spacy-0.1.1-py3-none-any.whl"
