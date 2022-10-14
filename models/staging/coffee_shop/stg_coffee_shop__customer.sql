@@ -1,5 +1,4 @@
 select
-    _file,
     _line,
     customer_id,
     home_store_id,
@@ -17,8 +16,8 @@ select
     customer_street,
     customer_city,
     customer_state,
-    zip_code,
-    county,
+    customer_zip_code,
+    customer_county,
     cc_number,
     _fivetran_synced
 from {{ source('coffee_shop', 'customer') }}

@@ -13,7 +13,7 @@ def model(dbt, session):
     # Probability (Confidence) Threhold for tagging PII Columns
     probability_threshold = float(dbt.config.get('pii_probability_threshold'))
     # Rows to scan to evaluate semantic category (PII type)
-    rows_to_scan = 1000
+    rows_to_scan = int(dbt.config.get('pii_rows_to_scan'))
 
     # Query info schema to get table metadata for tables in db_name.schema_name
     tables_query = """
@@ -159,6 +159,7 @@ def model(dbt, session):
                         'COLUMN_NAME': column_name,
                         'DATA_TYPE': data_type,
                         'COLUMN_PII_TYPE': semantic_category,
+                        'PROBABILITY': probability,
                         'MODIFIED_TS': utc_timestamp
                     }
 

@@ -2,7 +2,7 @@
 # Name your project! Project names should contain only lowercase characters
 # and underscores. A good package name should reflect your organization's
 # name or the intended use of these models
-name: 'my_new_project'
+name: 'dbt_hackathon'
 version: '1.0.0'
 config-version: 2
 
@@ -27,26 +27,30 @@ clean-targets:         # directories to be removed by `dbt clean`
 
 # Configuring models
 # Full documentation: https://docs.getdbt.com/docs/configuring-models
-
-# In this example config, we tell dbt to build all models in the example/ directory
-# as tables. These settings can be overridden in the individual model files
-# using the `{{ config(...) }}` macro.
 models:
-  my_new_project:
-    # Applies to all files under models/example/
-    example:
-      materialized: view
-
+  dbt_hackathon:
+    pii:
+      materialized: table
+      database: HACKATHON
+      schema: PII
+    staging:
+      coffee_shop:
+        materialized: view
 
 vars:
   pii_database: HACKATHON
   # Schema to evaluate:
   pii_schema: COFFEE_SHOP
+  pii_exclude_tables: ('GENERATION', 'NEARBY_ZIPCODES', 'FIVETRAN_AUDIT')
   # Schema to store function and data:
   pii_results_schema: PII
-  pii_exclude_tables: ('GENERATION', 'NEARBY_ZIPCODES', 'FIVETRAN_AUDIT')
   pii_probability_threshold: 0.7
+  pii_rows_to_scan: 1000
+  pii_warehouse: LOOKER_WH
   pii_execution_role: HACKATHON_ROLE
+  pii_execution_role_users: ['JHUTH', 'ARAWAS', 'JSCHINTZ', 'RKHALIL', 'HKHARVA', 'LTA', 'RFREERCA', 'LOOKER_USER']
+  pii_masking_roles: ['HACKATHON_MASKED_ROLE', 'HACKATHON_PARTIAL_ROLE', 'HACKATHON_HASHED_ROLE', 'HACKATHON_FAKER_ROLE']
+  pii_masking_role_users: ['JHUTH', 'ARAWAS', 'JSCHINTZ', 'RKHALIL', 'HKHARVA', 'LTA', 'RFREERCA', 'LOOKER_USER']
   pii_unmasked_roles: ('SYSADMIN', 'HACKATHON_ROLE')
   pii_masked_roles: ('HACKATHON_MASKED_ROLE')
   pii_partial_roles: ('HACKATHON_PARTIAL_ROLE')

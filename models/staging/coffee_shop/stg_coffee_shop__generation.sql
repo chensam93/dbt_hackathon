@@ -1,5 +1,4 @@
 select
-    _file,
     _line,
     birth_year,
     generation,

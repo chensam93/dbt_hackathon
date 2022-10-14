@@ -1,5 +1,4 @@
 select
-    _file,
     _line,
     store_id,
     year_month,

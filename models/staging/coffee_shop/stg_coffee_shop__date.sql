@@ -1,6 +1,4 @@
 select
-    _file,
-    _line,
     transaction_date,
     date_id,
     week_id,
@@ -9,6 +7,5 @@ select
     month_name,
     quarter_id,
     quarter_name,
-    year_id,
-    _fivetran_synced
+    year_id
 from {{ source('coffee_shop', 'date') }}

@@ -2,7 +2,7 @@ version: 2
 
 models:
 
-  - name: stg_pii__tag_pii_snowflake
+  - name: pii__tag_pii_snowflake
     config:
       materialized: table
       # Variables (from dbt_project.yml)
@@ -11,6 +11,7 @@ models:
       pii_schema: "{{ var('pii_schema') }}"
       pii_probability_threshold: "{{ var('pii_probability_threshold') }}"
       pii_exclude_tables: "{{ var('pii_exclude_tables') }}"
+      pii_rows_to_scan: "{{ var('pii_rows_to_scan') }}"
       # Packages used in Python model
       packages:
         - pandas

@@ -1,5 +1,4 @@
 select
-    _file,
     _line,
     staff_id,
     store_id,
@@ -19,5 +18,7 @@ select
     staff_ip_address,
     staff_ethnicity,
     staff_ssn,
+    staff_salary,
+    staff_gender,
     _fivetran_synced
 from {{ source('coffee_shop', 'staff') }}
