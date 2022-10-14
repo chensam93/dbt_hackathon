@@ -1,5 +1,4 @@
 select
-    _file,
     _line,
     transaction_id,
     transaction_date,

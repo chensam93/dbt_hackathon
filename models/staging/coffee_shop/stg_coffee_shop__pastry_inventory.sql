@@ -1,5 +1,4 @@
 select
-    _file,
     _line,
     sales_outlet_id as store_id,
     product_id,
