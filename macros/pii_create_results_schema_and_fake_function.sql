@@ -23,7 +23,7 @@ use role identifier($this_role);
 use warehouse identifier($this_warehouse);
 create schema if not exists identifier($this_db_schema);
 create schema if not exists identifier($target_db_schema);
-use schema identifier($this_schema);
+use schema identifier($target_db_schema);
 
 -- Create function in results schema to fake data
 -- Reference: https://medium.com/snowflake/flaker-2-0-fake-snowflake-data-the-easy-way-dc5e65225a13
@@ -47,25 +47,25 @@ $$;
 
 -- Grant privileges on results schema and function to this role
 use role securityadmin;
-grant all on schema identifier($this_db_schema) to role identifier($this_role);
-grant all on all tables in schema identifier($this_db_schema) to role identifier($this_role);
-grant all on future tables in schema identifier($this_db_schema) to role identifier($this_role);
+grant operate on warehouse identifier($this_warehouse) to role identifier($this_role);
+grant usage on warehouse identifier($this_warehouse) to role identifier($this_role);
+grant usage on database identifier($this_db) to role identifier($this_role);
+grant usage on all schemas in database identifier($this_db) to role identifier($this_role);
+grant usage on schema identifier($target_db_schema) to role identifier($this_role);
 grant usage on function identifier($this_function)(string, string, variant) to role identifier($this_role);
 -- Grant privileges on target schema to this role
-grant all on schema identifier($target_db_schema) to role identifier($this_role);
-grant all on all tables in schema identifier($target_db_schema) to role identifier($this_role);
-grant all on future tables in schema identifier($target_db_schema) to role identifier($this_role);
+grant select on all tables in schema identifier($target_db_schema) to role identifier($this_role);
+grant select on future tables in schema identifier($target_db_schema) to role identifier($this_role);
+grant select on all views in schema identifier($target_db_schema) to role identifier($this_role);
+grant select on future views in schema identifier($target_db_schema) to role identifier($this_role);
 
 -- Grant privileges on results schema and function to masking roles
 {% for masking_role in var('pii_masking_roles') %}
-grant all on schema identifier($this_db_schema) to role identifier($this_role);
-grant all on all tables in schema identifier($this_db_schema) to role identifier($this_role);
-grant all on future tables in schema identifier($this_db_schema) to role identifier($this_role);
+
+grant select on all tables in schema identifier($target_db_schema) to role identifier($this_role);
+grant select on future tables in schema identifier($target_db_schema) to role identifier($this_role);
 grant usage on function identifier($this_function)(string, string, variant) to role {{masking_role}};
--- Grant privileges on target schema to masking roles
-grant all on schema identifier($target_db_schema) to role {{masking_role}};
-grant all on all tables in schema identifier($target_db_schema) to role {{masking_role}};
-grant all on future tables in schema identifier($target_db_schema) to role {{masking_role}};
+
 {% endfor %}
 
 {% endset %}
