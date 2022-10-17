@@ -17,15 +17,17 @@ set this_db_schema = concat($this_db, '.', $this_schema);
 -- Assign grants to masking_role
 use role securityadmin;
 create role if not exists identifier($this_role);
+grant operate on warehouse identifier($this_warehouse) to role identifier($this_role);
+grant usage on warehouse identifier($this_warehouse) to role identifier($this_role);
 grant usage on database identifier($this_db) to role identifier($this_role);
-grant all on database identifier($this_db) to role identifier($this_role);
-grant all on future tables in database identifier($this_db) to role identifier($this_role);
-grant all on warehouse identifier($this_warehouse) to role identifier($this_role);
+grant usage on all schemas in database identifier($this_db) to role identifier($this_role);
 
 -- Schema grants
-grant all on schema identifier($this_db_schema) to role identifier($this_role);
-grant all on all tables in schema identifier($this_db_schema) to role identifier($this_role);
-grant all on future tables in schema identifier($this_db_schema) to role identifier($this_role);
+grant usage on schema identifier($this_db_schema) to role identifier($this_role);
+grant select on all tables in schema identifier($this_db_schema) to role identifier($this_role);
+grant select on future tables in schema identifier($this_db_schema) to role identifier($this_role);
+grant select on all views in schema identifier($this_db_schema) to role identifier($this_role);
+grant select on future views in schema identifier($this_db_schema) to role identifier($this_role);
 
 -- Assign role to users
 {% for role_user in var('pii_masking_role_users') %}
