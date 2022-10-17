@@ -62,7 +62,7 @@ models:
               when 'EMAIL' then
                   case
                       when current_role() in {{ var('pii_unmasked_roles') }} then val
-                      when current_role() in {{ var('pii_partial_roles') }} then '?????' || split_part(val, '@', 2)
+                      when current_role() in {{ var('pii_partial_roles') }} then '?????@' || split_part(val, '@', 2)
                       when current_role() in {{ var('pii_masked_roles') }} then '***MASKED***'
                       when current_role() in {{ var('pii_hashed_roles') }} then md5(val)
                       when current_role() in {{ var('pii_faker_roles') }} then {{ var('pii_results_schema') }}.fake('en_US', 'ascii_company_email', null)::varchar
