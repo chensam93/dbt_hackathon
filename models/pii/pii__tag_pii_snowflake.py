@@ -1,9 +1,6 @@
 from datetime import timezone
 import datetime
-import pandas
 import pandas as pd
-from pandas import DataFrame
-
 
 def model(dbt, session):
     # Get variables (from _pii__models.yml and dbt_project.yml)
@@ -83,7 +80,6 @@ def model(dbt, session):
         left join pii2 as p2
             on cm.column_name = p2.column_name
             and p2.row_num = 1
-        where coalesce(p2.privacy_category, p1.privacy_category) is not null
     """
 
     table_tag_query = """
@@ -125,10 +121,70 @@ def model(dbt, session):
             semantic_category = column['SEMANTIC_CATEGORY']
             probability = column['PROBABILITY']
 
+            if semantic_category is None:
+                semantic_category = 'NONE'
+
             # Ignore postal code type assigned to numerical fields
             if semantic_category.upper() == 'US_POSTAL_CODE':
                 if data_type != 'TEXT':
                     privacy_category = None
+
+            # Catch missing zip code assignment
+            if 'ZIP_CODE' in column_name and data_type == 'TEXT':
+                semantic_category = 'US_POSTAL_CODE'
+                privacy_category = 'QUASI_IDENTIFIER'
+                probability = 0.9
+
+            # Adjust names for first and last names
+            if semantic_category.upper() == 'NAME':
+                if 'FIRST' in column_name.upper():
+                    semantic_category = 'FIRST_NAME'
+                elif "LAST" in column_name.upper():
+                    semantic_category = 'LAST_NAME'
+                else:
+                    semantic_category = 'NAME'
+
+            # Catch missing credit card assignment
+            if 'CREDIT_CARD' in column_name and data_type == 'TEXT':
+                semantic_category = 'PAYMENT_CARD'
+                privacy_category = 'QUASI_IDENTIFIER'
+                probability = 0.9
+            
+            # Catch missing email assignment
+            if 'EMAIL' in column_name and data_type == 'TEXT':
+                semantic_category = 'EMAIL'
+                privacy_category = 'QUASI_IDENTIFIER'
+                probability = 0.9
+
+            # Catch missing age assignment
+            if column_name[-4:] == '_AGE':
+                semantic_category = 'AGE'
+                privacy_category = 'QUASI_IDENTIFIER'
+                probability = 0.9
+            
+            # Catch missing age assignment
+            if 'COORDINATES' in column_name:
+                semantic_category = 'LAT_LONG'
+                privacy_category = 'QUASI_IDENTIFIER'
+                probability = 0.9
+
+            # Catch missing year of birth assignment
+            if 'BIRTH' in column_name and 'YEAR' in column_name:
+                semantic_category = 'YEAR_OF_BIRTH'
+                privacy_category = 'QUASI_IDENTIFIER'
+                probability = 0.9
+            
+            # Catch missing latitude assignment
+            if 'LATITUDE' in column_name:
+                semantic_category = 'LATITUDE'
+                privacy_category = 'QUASI_IDENTIFIER'
+                probability = 0.9
+            
+            # Catch missing longitude assignment
+            if 'LONGITUDE' in column_name:
+                semantic_category = 'LONGITUDE'
+                privacy_category = 'QUASI_IDENTIFIER'
+                probability = 0.9
 
             if privacy_category is not None:
                 if probability >= probability_threshold:
@@ -139,15 +195,6 @@ def model(dbt, session):
 
                     # Get UTC timestamp for Now
                     utc_timestamp = datetime.datetime.now(timezone.utc).replace(tzinfo=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-                    
-                    # Adjust names for first and last names
-                    if semantic_category.upper() == 'NAME':
-                        if "FIRST" in column_name.upper():
-                            semantic_category = "FIRST_NAME"
-                        elif "LAST" in column_name.upper():
-                            semantic_category = "LAST_NAME"
-                        else:
-                            semantic_category = "NAME"
 
                     # Create new_row for appending to results_df
                     new_row = {
