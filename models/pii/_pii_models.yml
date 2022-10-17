@@ -3,6 +3,28 @@ version: 2
 models:
 
   - name: pii__tag_pii_snowflake
+    description: Logging table for PII column types.
+    columns:
+        - name: table_catalog
+          description: Database that table is in
+        - name: table_schema
+          description: Schema that the table is in
+        - name: table_name
+          description: Table with PII data
+        - name: table_type
+          description: Base table or view
+        - name: row_count
+          description: Estimated # of rows in table
+        - name: column_name
+          description: Column w/ PII data
+        - name: data_type
+          description: Column data type
+        - name: column_pii_type
+          description: Column PII type from EXTRACT_SEMANTIC_CATEGORIES function
+        - name: probability
+          description: Column PII type confidence score
+        - name: modified_ts
+          description: Modified timestamp when the model was last run
     config:
       materialized: table
       # Variables (from dbt_project.yml)
@@ -40,10 +62,10 @@ models:
               when 'EMAIL' then
                   case
                       when current_role() in {{ var('pii_unmasked_roles') }} then val
-                      when current_role() in {{ var('pii_partial_roles') }} then '?????' || split_part(val, '@', 2)
+                      when current_role() in {{ var('pii_partial_roles') }} then '?????@' || split_part(val, '@', 2)
                       when current_role() in {{ var('pii_masked_roles') }} then '***MASKED***'
                       when current_role() in {{ var('pii_hashed_roles') }} then md5(val)
-                      when current_role() in {{ var('pii_faker_roles') }} then pii.fake('en_US', 'ascii_company_email', null)::varchar
+                      when current_role() in {{ var('pii_faker_roles') }} then {{ var('pii_results_schema') }}.fake('en_US', 'ascii_company_email', null)::varchar
                       else '***MASKED***'
                   end
 
@@ -53,7 +75,7 @@ models:
                       when current_role() in {{ var('pii_partial_roles') }} then left(val, 1) || '?????'
                       when current_role() in {{ var('pii_masked_roles') }} then '***MASKED***'
                       when current_role() in {{ var('pii_hashed_roles') }} then md5(val)
-                      when current_role() in {{ var('pii_faker_roles') }} then pii.fake('en_US', 'first_name', null)::varchar
+                      when current_role() in {{ var('pii_faker_roles') }} then {{ var('pii_results_schema') }}.fake('en_US', 'first_name', null)::varchar
                       else '***MASKED***'
                   end
 
@@ -63,7 +85,7 @@ models:
                       when current_role() in {{ var('pii_partial_roles') }} then left(val, 1) || '?????'
                       when current_role() in {{ var('pii_masked_roles') }} then '***MASKED***'
                       when current_role() in {{ var('pii_hashed_roles') }} then md5(val)
-                      when current_role() in {{ var('pii_faker_roles') }} then pii.fake('en_US', 'last_name', null)::varchar
+                      when current_role() in {{ var('pii_faker_roles') }} then {{ var('pii_results_schema') }}.fake('en_US', 'last_name', null)::varchar
                       else '***MASKED***'
                   end
 
@@ -73,7 +95,7 @@ models:
                       when current_role() in {{ var('pii_partial_roles') }} then left(split_part(val, ' ', 1), 1) || '????? ' || left(split_part(val, ' ', 2), 1) || '?????'
                       when current_role() in {{ var('pii_masked_roles') }} then '***MASKED***'
                       when current_role() in {{ var('pii_hashed_roles') }} then md5(val)
-                      when current_role() in {{ var('pii_faker_roles') }} then pii.fake('en_US', 'name', null)::varchar
+                      when current_role() in {{ var('pii_faker_roles') }} then {{ var('pii_results_schema') }}.fake('en_US', 'name', null)::varchar
                       else '***MASKED***'
                   end
 
@@ -83,7 +105,7 @@ models:
                       when current_role() in {{ var('pii_partial_roles') }} then regexp_replace(val,substring(val,1,8),'xxx-xxx-')
                       when current_role() in {{ var('pii_masked_roles') }} then '###-###-####'
                       when current_role() in {{ var('pii_hashed_roles') }} then md5(val)
-                      when current_role() in {{ var('pii_faker_roles') }} then pii.fake('en_US', 'phone_number', NULL)::varchar
+                      when current_role() in {{ var('pii_faker_roles') }} then {{ var('pii_results_schema') }}.fake('en_US', 'phone_number', NULL)::varchar
                       else '***MASKED***'
                   end
 
@@ -93,7 +115,7 @@ models:
                       when current_role() in {{ var('pii_partial_roles') }} then regexp_replace(val,substring(val,1,7),'xxx-xx-')
                       when current_role() in {{ var('pii_masked_roles') }} then '###-##-####'
                       when current_role() in {{ var('pii_hashed_roles') }} then md5(val)
-                      when current_role() in {{ var('pii_faker_roles') }} then pii.fake('en_US', 'ssn', null)::varchar
+                      when current_role() in {{ var('pii_faker_roles') }} then {{ var('pii_results_schema') }}.fake('en_US', 'ssn', null)::varchar
                       else '***MASKED***'
                   end
 
@@ -103,7 +125,7 @@ models:
                       when current_role() in {{ var('pii_partial_roles') }} then regexp_replace(val,split_part(val, ' ', 1),'####')
                       when current_role() in {{ var('pii_masked_roles') }} then '***MASKED***'
                       when current_role() in {{ var('pii_hashed_roles') }} then md5(val)
-                      when current_role() in {{ var('pii_faker_roles') }} then pii.fake('en_US', 'street_address', null)::varchar
+                      when current_role() in {{ var('pii_faker_roles') }} then {{ var('pii_results_schema') }}.fake('en_US', 'street_address', null)::varchar
                       else '***MASKED***'
                   end
 
@@ -113,7 +135,7 @@ models:
                       when current_role() in {{ var('pii_partial_roles') }} then left(val, 1) || '?????'
                       when current_role() in {{ var('pii_masked_roles') }} then '***MASKED***'
                       when current_role() in {{ var('pii_hashed_roles') }} then md5(val)
-                      when current_role() in {{ var('pii_faker_roles') }} then pii.fake('en_US', 'city', null)::varchar
+                      when current_role() in {{ var('pii_faker_roles') }} then {{ var('pii_results_schema') }}.fake('en_US', 'city', null)::varchar
                       else '***MASKED***'
                   end
 
@@ -123,7 +145,7 @@ models:
                       when current_role() in {{ var('pii_partial_roles') }} then left(val, 3) || '##'
                       when current_role() in {{ var('pii_masked_roles') }} then '#####'
                       when current_role() in {{ var('pii_hashed_roles') }} then md5(val)
-                      when current_role() in {{ var('pii_faker_roles') }} then pii.fake('en_US', 'postcode', null)::varchar
+                      when current_role() in {{ var('pii_faker_roles') }} then {{ var('pii_results_schema') }}.fake('en_US', 'postcode', null)::varchar
                       else '***MASKED***'
                   end
 
@@ -133,7 +155,7 @@ models:
                       when current_role() in {{ var('pii_partial_roles') }} then '??'
                       when current_role() in {{ var('pii_masked_roles') }} then '??'
                       when current_role() in {{ var('pii_hashed_roles') }} then md5(val)
-                      when current_role() in {{ var('pii_faker_roles') }} then pii.fake('en_US', 'state_abbr', null)::varchar
+                      when current_role() in {{ var('pii_faker_roles') }} then {{ var('pii_results_schema') }}.fake('en_US', 'state_abbr', null)::varchar
                       else '***MASKED***'
                   end
 
@@ -143,7 +165,7 @@ models:
                       when current_role() in {{ var('pii_partial_roles') }} then left(val, 1) || '?????'
                       when current_role() in {{ var('pii_masked_roles') }} then '***MASKED***'
                       when current_role() in {{ var('pii_hashed_roles') }} then md5(val)
-                      when current_role() in {{ var('pii_faker_roles') }} then pii.fake('en_GB', 'county', null)::varchar
+                      when current_role() in {{ var('pii_faker_roles') }} then {{ var('pii_results_schema') }}.fake('en_GB', 'county', null)::varchar
                       else '***MASKED***'
                   end
 
@@ -153,7 +175,7 @@ models:
                       when current_role() in {{ var('pii_partial_roles') }} then left(val, 1) || '?????'
                       when current_role() in {{ var('pii_masked_roles') }} then '***MASKED***'
                       when current_role() in {{ var('pii_hashed_roles') }} then md5(val)
-                      when current_role() in {{ var('pii_faker_roles') }} then pii.fake('en_US', 'country', null)::varchar
+                      when current_role() in {{ var('pii_faker_roles') }} then {{ var('pii_results_schema') }}.fake('en_US', 'country', null)::varchar
                       else '***MASKED***'
                   end
 
@@ -163,7 +185,7 @@ models:
                       when current_role() in {{ var('pii_partial_roles') }} then left(val, 1) || '?????'
                       when current_role() in {{ var('pii_masked_roles') }} then '***MASKED***'
                       when current_role() in {{ var('pii_hashed_roles') }} then md5(val)
-                      when current_role() in {{ var('pii_faker_roles') }} then pii.fake('en_US', 'job', null)::varchar
+                      when current_role() in {{ var('pii_faker_roles') }} then {{ var('pii_results_schema') }}.fake('en_US', 'job', null)::varchar
                       else '***MASKED***'
                   end
 
@@ -203,7 +225,7 @@ models:
                       when current_role() in {{ var('pii_partial_roles') }} then split_part(split_part(val, ',', 1), '.', 1) || '.#####,' || split_part(split_part(val, ',', 2), '.', 1) || '.######'
                       when current_role() in {{ var('pii_masked_roles') }} then '###.#####,###.#####'
                       when current_role() in {{ var('pii_hashed_roles') }} then md5(val)
-                      when current_role() in {{ var('pii_faker_roles') }} then array_to_string(pii.fake('en_US', 'latlng', null)::array, ',')
+                      when current_role() in {{ var('pii_faker_roles') }} then array_to_string({{ var('pii_results_schema') }}.fake('en_US', 'latlng', null)::array, ',')
                       else '***MASKED***'
                   end
 
@@ -213,7 +235,7 @@ models:
                       when current_role() in {{ var('pii_partial_roles') }} then split_part(val, '.', 1) || '.' || split_part(val, '.', 2) || '.###.###'
                       when current_role() in {{ var('pii_masked_roles') }} then '###.###.###.###'
                       when current_role() in {{ var('pii_hashed_roles') }} then md5(val)
-                      when current_role() in {{ var('pii_faker_roles') }} then pii.fake('en_US', 'ipv4', null)::varchar
+                      when current_role() in {{ var('pii_faker_roles') }} then {{ var('pii_results_schema') }}.fake('en_US', 'ipv4', null)::varchar
                       else '***MASKED***'
                   end
 
@@ -223,7 +245,7 @@ models:
                       when current_role() in {{ var('pii_partial_roles') }} then '####-####-####-' || right(val, 4)
                       when current_role() in {{ var('pii_masked_roles') }} then '####-####-####-####'
                       when current_role() in {{ var('pii_hashed_roles') }} then md5(val)
-                      when current_role() in {{ var('pii_faker_roles') }} then pii.fake('en_US', 'credit_card_number', null)::varchar
+                      when current_role() in {{ var('pii_faker_roles') }} then {{ var('pii_results_schema') }}.fake('en_US', 'credit_card_number', null)::varchar
                       else '***MASKED***'
                   end
 
@@ -248,7 +270,7 @@ models:
                       when current_role() in {{ var('pii_partial_roles') }} then 1900
                       when current_role() in {{ var('pii_masked_roles') }} then 1900
                       when current_role() in {{ var('pii_hashed_roles') }} then 1900
-                      when current_role() in {{ var('pii_faker_roles') }} then YEAR(pii.fake('en_US', 'date_of_birth', to_variant(parse_json('{}')))::date)::int
+                      when current_role() in {{ var('pii_faker_roles') }} then YEAR({{ var('pii_results_schema') }}.fake('en_US', 'date_of_birth', to_variant(parse_json('{}')))::date)::int
                       else 1900
                   end
 
@@ -264,7 +286,7 @@ models:
                       when current_role() in {{ var('pii_partial_roles') }} then 0
                       when current_role() in {{ var('pii_masked_roles') }} then 0
                       when current_role() in {{ var('pii_hashed_roles') }} then 0
-                      when current_role() in {{ var('pii_faker_roles') }} then pii.fake('en_US', 'latitude', null)::float
+                      when current_role() in {{ var('pii_faker_roles') }} then {{ var('pii_results_schema') }}.fake('en_US', 'latitude', null)::float
                       else 0
                   end
 
@@ -274,7 +296,7 @@ models:
                       when current_role() in {{ var('pii_partial_roles') }} then 0
                       when current_role() in {{ var('pii_masked_roles') }} then 0
                       when current_role() in {{ var('pii_hashed_roles') }} then 0
-                      when current_role() in {{ var('pii_faker_roles') }} then pii.fake('en_US', 'longitude', null)::float
+                      when current_role() in {{ var('pii_faker_roles') }} then {{ var('pii_results_schema') }}.fake('en_US', 'longitude', null)::float
                       else 1900
                   end
 
@@ -299,7 +321,7 @@ models:
                       when current_role() in {{ var('pii_partial_roles') }} then ((year(val)::string) || '-01-01')::date
                       when current_role() in {{ var('pii_masked_roles') }} then '1900-01-01'::date
                       when current_role() in {{ var('pii_hashed_roles') }} then '1900-01-01'::date
-                      when current_role() in {{ var('pii_faker_roles') }} then pii.fake('en_US', 'date_of_birth', to_variant(parse_json('{}')))::date
+                      when current_role() in {{ var('pii_faker_roles') }} then {{ var('pii_results_schema') }}.fake('en_US', 'date_of_birth', to_variant(parse_json('{}')))::date
                       else '1900-01-01'::date
                   end
 
@@ -312,21 +334,3 @@ models:
           ALTER TAG {{ var('pii_schema') }}.COLUMN_PII_TYPE_SNOWFLAKE SET MASKING POLICY {{ var('pii_schema') }}.mask_tag_float;
 
         transaction: true
-
-
-  # - name: stg_pii__tag_pii_catcher
-  #   config:
-  #     materialized: table
-  #     pre-hook:
-  #       # Create the PII tags w/ allowed values
-  #       sql:  use schema hackathon.coffee_shop;
-  #             create tag if not exists TABLE_PII_FLAG allowed_values 'Yes' , 'No';
-  #             create tag if not exists COLUMN_PII_TYPE_PIICATCHER allowed_values 'Phone', 'Email', 'Credit Card', 'Address', 'Person', 'Location', 'Date', 
-  #               'Gender', 'Nationality', 'IP Address', 'SSN', 'User Name', 'Password';
-  #       transaction: true
-  #     packages:
-  #       - pandas
-  #     imports:
-  #       - "@OTHER_PYTHON_PACKAGES/wheel_loader.py"
-  #       - "@OTHER_PYTHON_PACKAGES/piicatcher-0.19.2-py3-none-any.whl"
-  #       - "@OTHER_PYTHON_PACKAGES/piicatcher_spacy-0.1.1-py3-none-any.whl"

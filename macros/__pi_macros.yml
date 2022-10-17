@@ -1,0 +1,14 @@
+version: 2
+
+macros:
+  - name: pii_create_execution_role
+    description: Creates execution role, grants privileges to role, and assigns users to role
+
+  - name: pii_create_masking_role
+    description: Creates masking roles, grants privileges to each role, and assigns users to each role
+
+  - name: pii_create_results_results_schema_and_fake_function
+    description: Creates results schema and fake function for faking data
+
+  - name: pii_create_tag_admin_role
+    description: Creates tag_admin role and grants apply masking policy and tag
